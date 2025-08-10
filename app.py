@@ -1,42 +1,74 @@
-from faiss import read_index
-from PIL import Image
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
+from faiss import read_index, normalize_L2
+from PIL import Image
 import clip
 import json
 import torch
+import numpy as np
+import os
 
 
 class App:
-    def __init__(self):
+    def __init__(self, index_path="static/index.faiss", paths_path="static/image_paths.json", model_name="ViT-B/32"):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-
-        self.model, _ = clip.load("ViT-B/32", device=self.device)
+        self.model, self.preprocess = clip.load(model_name, device=self.device)
         self.model.eval()
 
-        self.index = read_index("static/index.faiss")
-        with open("static/image_paths.json") as f:
+        self.index = read_index(index_path)
+        with open(paths_path, "r", encoding="utf-8") as f:
             self.image_paths = json.load(f)
 
-    def search(self, search_text, results=1):
-        text_tokens = clip.tokenize([search_text]).to(self.device)
+        self.dim = self.index.d
+        self.db_size = len(self.image_paths)
+
+    def _search_vec(self, q_vec, topk=5):
+        """
+        q_vec: torch.Tensor, shape (1, d)
+        returns: list of dicts {path, score}
+        """
+        # L2-norm (cosine = IP)
+        q_vec = q_vec / q_vec.norm(dim=-1, keepdim=True)
+
+        # numpy float32 for FAISS
+        q = q_vec.detach().cpu().numpy().astype("float32")
+
+        # safe normalize (idempotent)
+        normalize_L2(q)
+
+        topk = int(min(max(1, topk), self.db_size))
+        D, I = self.index.search(q, topk)  # D: cosine scores, I: indices
+
+        I = I[0].tolist()
+        D = D[0].tolist()
+        return [{"path": self.image_paths[i], "score": float(s)} for i, s in zip(I, D)]
+
+    def search_text(self, text, results=5):
+        tokens = clip.tokenize([text]).to(self.device)
         with torch.no_grad():
-            text_features = self.model.encode_text(text_tokens).float()
-        text_features /= text_features.norm(dim=-1, keepdim=True)
-        text_features = text_features.cpu().numpy()
+            t_feat = self.model.encode_text(tokens).float()
+        return self._search_vec(t_feat, topk=results)
 
-        _, indices = self.index.search(text_features, results)
-        return [self.image_paths[indices[0][i]] for i in range(results)]
+    def search_image(self, image_or_path, results=5):
+        if isinstance(image_or_path, str):
+            img = Image.open(image_or_path).convert("RGB")
+        else:
+            img = image_or_path.convert("RGB")
+        img_t = self.preprocess(img).unsqueeze(0).to(self.device)
+        with torch.no_grad():
+            i_feat = self.model.encode_image(img_t).float()
+        return self._search_vec(i_feat, topk=results)
 
+    # Optional CLI
     def run(self):
         while True:
-            search_text = input("Search: ")
-            if search_text == "exit":
+            q = input("Search (text or path to image, 'exit' to quit): ").strip()
+            if q.lower() == "exit":
                 break
-            image_path = self.search(search_text)[0]
-            image = Image.open(image_path)
-            image.show()
-
-
-if __name__ == "__main__":
-    app = App()
-    app.run()
+            if os.path.isfile(q):
+                results = self.search_image(q, results=5)
+            else:
+                results = self.search_text(q, results=5)
+            for rank, r in enumerate(results, 1):
+                print(f"{rank:>2}. {r['path']} | score={r['score']:.4f}")

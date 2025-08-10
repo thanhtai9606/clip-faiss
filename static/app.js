@@ -11,7 +11,7 @@ document.getElementById('searchButton')
             // and add new results
             const resultsDiv = document.getElementById('results');
             resultsDiv.innerHTML = '';
-            data.forEach(imageUrl => {
+            data.results.forEach(imageUrl => {
                 const img = document.createElement('img');
                 img.src = imageUrl;
                 resultsDiv.appendChild(img);
