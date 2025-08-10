@@ -23,3 +23,35 @@
   height: 100%;
   object-fit: cover;
 }
+
+#results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.thumb {
+  position: relative;
+}
+.thumb img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+}
+.thumb .score {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(0,0,0,.65);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.2;
+  opacity: 0;
+  transition: opacity .15s ease;
+  pointer-events: none;
+}
+.thumb:hover .score {
+  opacity: 1;
+}
