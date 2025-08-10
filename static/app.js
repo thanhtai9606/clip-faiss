@@ -18,7 +18,7 @@ document.getElementById('searchButton')
 
           const score = document.createElement('span');
           score.className = 'score';
-          score.textContent = `score: ${Number(item.score * 100).toFixed(3)}%`;
+          score.textContent = `score: ${Number(item.score).toFixed(3)}`;
 
           wrap.appendChild(img);
           wrap.appendChild(score);
