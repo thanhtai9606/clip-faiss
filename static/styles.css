@@ -31,6 +31,7 @@
 }
 .thumb {
   position: relative;
+  cursor: pointer;
 }
 .thumb img {
   width: 100%;
