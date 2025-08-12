@@ -1,174 +1,47 @@
 <!-- templates/index.html -->
 <!doctype html>
 <html lang="vi">
+
 <head>
-  <meta charset="utf-8">
-  <title>CLIP + FAISS Search</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    * { box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
-    h2 { margin: 16px 0 8px; }
-    .row { display: grid; grid-template-columns: 1fr; gap: 24px; }
-    @media (min-width: 960px) {
-      .row { grid-template-columns: 1fr 1fr; }
-    }
-
-    .card {
-      border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px;
-      box-shadow: 0 1px 2px rgba(0,0,0,.04);
-    }
-    .actions { display: flex; gap: 8px; align-items: center; }
-    input[type="text"] { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; }
-    button {
-      padding: 10px 14px; border: none; border-radius: 8px; cursor: pointer;
-      background: #111827; color: #fff;
-    }
-    button:disabled { opacity: .6; cursor: not-allowed; }
-
-    #results {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 12px; margin-top: 16px;
-    }
-    .thumb {
-      position: relative;
-      cursor: pointer; /* 👈 pointer khi hover */
-      overflow: hidden; border-radius: 10px; background: #f8fafc;
-    }
-    .thumb img {
-      width: 100%; height: auto; display: block; transition: transform .15s ease;
-    }
-    .thumb:hover img { transform: scale(1.02); }
-    .thumb .score {
-      position: absolute; left: 8px; bottom: 8px;
-      padding: 4px 6px; border-radius: 6px;
-      background: rgba(0,0,0,.65); color: #fff;
-      font-size: 12px; line-height: 1.2;
-      opacity: 0; transition: opacity .15s ease; pointer-events: none;
-    }
-    .thumb:hover .score { opacity: 1; }
-
-    .preview {
-      display: flex; align-items: center; gap: 12px; margin-top: 8px; color: #6b7280;
-      font-size: 14px;
-    }
-    .preview img {
-      width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb;
-    }
-    .muted { color: #6b7280; font-size: 12px; }
-  </style>
+    <meta charset="utf-8">
+    <title>CLIP + FAISS Search</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="/static/styles.css">
 </head>
+
 <body>
-  <h1>Image Retrieval – CLIP + FAISS</h1>
+    <h1>Image Retrieval – CLIP + FAISS</h1>
 
-  <div class="row">
-    <!-- TEXT → IMAGE -->
-    <div class="card">
-      <h2>Text Search</h2>
-      <div class="actions">
-        <input id="searchInput" type="text" placeholder="Ví dụ: Radcliffe Camera, Eiffel Tower, ...">
-        <button id="searchButton">Search</button>
-      </div>
-      <div class="muted">Kết quả sẽ hiển thị bên dưới.</div>
+    <div class="row">
+        <!-- TEXT → IMAGE -->
+        <div class="card">
+            <h2>Text Search</h2>
+            <div class="actions">
+                <input id="searchInput" type="text" placeholder="Ví dụ: Radcliffe Camera, Eiffel Tower, ...">
+                <button id="searchButton">Search</button>
+            </div>
+            <div class="muted">Kết quả sẽ hiển thị bên dưới.</div>
+        </div>
+
+        <!-- IMAGE → IMAGE -->
+        <div class="card">
+            <h2>Image → Image Search</h2>
+            <form id="imgForm" enctype="multipart/form-data">
+                <div class="actions">
+                    <input id="fileInput" type="file" name="file" accept="image/*">
+                    <button id="imgButton" type="submit">Search by Image</button>
+                </div>
+                <div id="preview" class="preview" style="display:none;">
+                    <img id="previewImg" alt="preview">
+                    <span id="previewName"></span>
+                </div>
+            </form>
+            <div class="muted">Chọn ảnh (jpg/jpeg/png), sau đó bấm “Search by Image”.</div>
+        </div>
     </div>
 
-    <!-- IMAGE → IMAGE -->
-    <div class="card">
-      <h2>Image → Image Search</h2>
-      <form id="imgForm" enctype="multipart/form-data">
-        <div class="actions">
-          <input id="fileInput" type="file" name="file" accept="image/*">
-          <button id="imgButton" type="submit">Search by Image</button>
-        </div>
-        <div id="preview" class="preview" style="display:none;">
-          <img id="previewImg" alt="preview">
-          <span id="previewName"></span>
-        </div>
-      </form>
-      <div class="muted">Chọn ảnh (jpg/jpeg/png), sau đó bấm “Search by Image”.</div>
-    </div>
-  </div>
-
-  <div id="results"></div>
-
-  <script>
-    const resultsDiv = document.getElementById('results');
-
-    function renderResults(list) {
-      resultsDiv.innerHTML = '';
-      if (!Array.isArray(list) || list.length === 0) {
-        resultsDiv.innerHTML = '<div class="muted">Không có kết quả.</div>';
-        return;
-      }
-      list.forEach(item => {
-        const wrap = document.createElement('div');
-        wrap.className = 'thumb';
-        wrap.title = `score: ${Number(item.score).toFixed(3)}`; // tooltip nhanh
-
-        const img = document.createElement('img');
-        img.src = item.path;
-        img.alt = 'result';
-
-        const score = document.createElement('span');
-        score.className = 'score';
-        score.textContent = `score: ${Number(item.score).toFixed(3)}`;
-
-        wrap.appendChild(img);
-        wrap.appendChild(score);
-        resultsDiv.appendChild(wrap);
-      });
-    }
-
-    // TEXT SEARCH
-    document.getElementById('searchButton')
-      .addEventListener('click', function() {
-        const searchTerm = document.getElementById('searchInput').value;
-        if (searchTerm.trim() !== '') {
-          const apiUrl = `/search?search_query=${encodeURIComponent(searchTerm)}&k=12`;
-          fetch(apiUrl)
-            .then(r => r.json())
-            .then(data => renderResults(data.results))
-            .catch(() => { resultsDiv.innerHTML = '<div class="muted">Lỗi gọi API /search</div>'; });
-        }
-      });
-
-    // IMAGE SEARCH
-    const fileInput = document.getElementById('fileInput');
-    const imgForm   = document.getElementById('imgForm');
-    const imgButton = document.getElementById('imgButton');
-    const preview   = document.getElementById('preview');
-    const previewImg= document.getElementById('previewImg');
-    const previewName= document.getElementById('previewName');
-
-    // Preview ảnh đã chọn
-    fileInput.addEventListener('change', () => {
-      const f = fileInput.files && fileInput.files[0];
-      if (!f) { preview.style.display = 'none'; return; }
-      const url = URL.createObjectURL(f);
-      previewImg.src = url;
-      previewName.textContent = f.name;
-      preview.style.display = 'flex';
-    });
-
-    imgForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const f = fileInput.files && fileInput.files[0];
-      if (!f) return;
-
-      imgButton.disabled = true;
-      const fd = new FormData();
-      fd.append('file', f);
-
-      fetch('/search-image?k=12', {
-        method: 'POST',
-        body: fd
-      })
-        .then(r => r.json())
-        .then(data => renderResults(data.results))
-        .catch(() => { resultsDiv.innerHTML = '<div class="muted">Lỗi gọi API /search-image</div>'; })
-        .finally(() => { imgButton.disabled = false; });
-    });
-  </script>
+    <div id="results"></div>
+    <script src="/static/app.js"></script>
 </body>
+
 </html>
