@@ -55,6 +55,26 @@ Chạy script `index.py` và trỏ đến thư mục chứa ảnh của bạn. Q
 python index.py --image_dir_path "Data/your_dataset_name/images"
 ```
 
+### Bước 4: Chạy ứng dụng Web**
+
+Sau khi đã có index, khởi chạy server Flask để bắt đầu sử dụng giao diện web.
+
+```bash
+python serve.py
+```
+
+Ứng dụng sẽ có sẵn tại địa chỉ `http://127.0.0.1:5000`. Mở trình duyệt và truy cập vào link này để bắt đầu tìm kiếm.
+
+### **(Tùy chọn) Bước 5: Chạy ứng dụng trên giao diện dòng lệnh (CLI)**
+
+Nếu bạn muốn thử nghiệm nhanh mà không cần giao diện web, bạn có thể chạy `app.py`.
+
+```bash
+python app.py
+```
+
+Ứng dụng sẽ yêu cầu bạn nhập truy vấn (văn bản hoặc đường dẫn đến ảnh) trực tiếp trên terminal.
+
 ## Hướng dẫn đo memory lúc batch encoding
 
 ### Bước 1
