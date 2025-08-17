@@ -14,7 +14,13 @@ import os
 import sys
 import torch
 from pathlib import Path
+import psutil
 
+def log_mem(tag: str):
+    """In-place snapshot of CPU & GPU usage (MiB)."""
+    rss = psutil.Process().memory_info().rss / 2**20        # resident set size
+    gpu = torch.cuda.max_memory_allocated() / 2**20 if torch.cuda.is_available() else 0
+    print(f"[MEM] {tag:<20} | CPU {rss:8.1f} MiB | GPU {gpu:8.1f} MiB")
 
 def iter_image_paths(root_dir, exts=None):
     if exts is None:
@@ -30,6 +36,7 @@ def iter_image_paths(root_dir, exts=None):
 def encode_in_batches(img_paths, model, preprocess, device, batch_size=256):
     feats = []
     for i in tqdm(range(0, len(img_paths), batch_size), desc="Encoding images"):
+        log_mem('before batch')
         batch_paths = img_paths[i : i + batch_size]
         batch_imgs = []
         for p in batch_paths:
@@ -43,6 +50,7 @@ def encode_in_batches(img_paths, model, preprocess, device, batch_size=256):
         # L2-norm (cosine = IP)
         f = f / f.norm(dim=-1, keepdim=True)
         feats.append(f.cpu())
+        log_mem('after batch')
 
     feats = torch.cat(feats, dim=0)  # (N, d)
     return feats.numpy().astype("float32")
@@ -64,8 +72,10 @@ def build_index(image_dir_path, output_dir="static", model_name="ViT-B/32", batc
     print(f"[INFO] Found {len(image_paths)} images")
 
     # Encode → L2-normalize (already unit-norm), keep float32
+    log_mem('before encode_in_batches')
     image_features = encode_in_batches(image_paths, model, preprocess, device, batch_size=batch_size)
-
+    log_mem('after encode_in_batches')
+    
     # (An toàn) normalize lại bằng FAISS (idempotent)
     normalize_L2(image_features)
 

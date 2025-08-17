@@ -53,3 +53,23 @@ Chạy script `index.py` và trỏ đến thư mục chứa ảnh của bạn. Q
 
 ```bash
 python index.py --image_dir_path "Data/your_dataset_name/images"
+```
+
+## Hướng dẫn đo memory lúc batch encoding
+
+### Bước 1
+Giải nén `static/cats.zip` cho vào thư mục `static/data/cats`
+
+### Bước 2
+```bash
+python index.py --image_dir_path static/data --batch_size 10
+```
+
+### Bước 3
+So sánh với bản gốc ở nhánh `main`.
+
+### Trước (không có batch encoding) ~ 200 MiB
+![Trước (không có batch encoding)](static/before-batch-encoded.png)
+
+### Sau (có batch encoding) ~ 86.9 MiB
+![Sau (có batch encoding)](static/after-batch-encoded.png)
