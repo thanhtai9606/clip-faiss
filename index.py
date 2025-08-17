@@ -9,7 +9,13 @@ import json
 import numpy as np
 import os
 import torch
+import psutil
 
+def log_mem(tag: str):
+    """In-place snapshot of CPU & GPU usage (MiB)."""
+    rss = psutil.Process().memory_info().rss / 2**20        # resident set size
+    gpu = torch.cuda.max_memory_allocated() / 2**20 if torch.cuda.is_available() else 0
+    print(f"[MEM] {tag:<20} | CPU {rss:8.1f} MiB | GPU {gpu:8.1f} MiB")
 
 def index(image_dir_path):
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -32,10 +38,15 @@ def index(image_dir_path):
             image_paths.append(os.path.join(img_dir_path, animal_name, img_file))
     image_input = torch.tensor(np.stack(images)).to(device)
 
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+    log_mem("before encode_image")
     with torch.no_grad():
         image_features = model.encode_image(image_input).float()
     image_features /= image_features.norm(dim=-1, keepdim=True)
     image_features = image_features.cpu().numpy()
+    log_mem("after encode_image")
+
 
     index = faiss.IndexFlatIP(image_features.shape[1])
     index.add(image_features)
